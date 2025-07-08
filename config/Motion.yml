@@ -1,0 +1,20 @@
+---
+    model_architecture: Motion
+    
+    model_params:
+        ec_thread           : False
+        stream_part         : 1
+        inplace             : True
+        g_ch_z              : 64
+        channel_mv          : 64
+        channel_N           : 64
+        quant_mode          : estUN_outR
+
+        cond_source         : flow_hat+ref_mv_feature
+        cond_input_dim      : [2]
+        enc_cond_dims       : [64, 64]
+        dec_cond_dims       : [64, 64]
+        cond_kernel_size    : [5, 3]
+        cond_scale_list     : [4, 2]
+        temp_source         : ref_intensity+ref_mv_y
+        predprior_input_dim : 5

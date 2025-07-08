@@ -1,0 +1,20 @@
+---
+    model_architecture: Inter
+    
+    model_params:
+        ec_thread       : False
+        stream_part     : 1
+        inplace         : True
+        g_ch_1x         : 48
+        g_ch_2x         : 64
+        g_ch_4x         : 96
+        g_ch_8x         : 96
+        g_ch_16x        : 128
+        g_ch_z          : 64
+        quant_mode      : estUN_outR
+        feature_channel : 2
+
+        CTM_Params:
+            CTM_depth : 2
+            CTM_head  : 8
+            CA_bias         : False
