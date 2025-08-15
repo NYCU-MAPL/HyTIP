@@ -4,35 +4,40 @@
 
 
 ## Abstract
+
 > Most frame-based learned video codecs can be interpreted as recurrent neural networks (RNNs) propagating reference information along the temporal dimension. This work revisits the limitations of the current approaches from an RNN perspective. The output-recurrence methods, which propagate decoded frames, are intuitive but impose dual constraints on the output decoded frames, leading to suboptimal rate-distortion performance. In contrast, the hidden-to-hidden connection approaches, which propagate latent features within the RNN, offer greater flexibility but require large buffer sizes. To address these issues, we propose HyTIP, a learned video coding framework that combines both mechanisms. Our hybrid buffering strategy uses explicit decoded frames and a small number of implicit latent features to achieve competitive coding performance. Experimental results show that our HyTIP outperforms the sole use of either output-recurrence or hidden-to-hidden approaches. Furthermore, it achieves comparable performance to state-of-the-art methods but with a much smaller buffer size, and outperforms VTM 17.0 (Low-delay B) in terms of PSNR-RGB and MS-SSIM-RGB. The source code of HyTIP is available at [https://github.com/NYCU-MAPL/HyTIP](https://github.com/NYCU-MAPL/HyTIP).
 
+
 ## Complexity-performance Trade-offs
+
+* Comparison of complexity-performance trade-offs between HyTIP and state-of-the-art methods. The vertical axis shows the BD-rate savings in terms of PSNR-RGB, evaluated with VTM-17.0 (Low-delay B) serving as the anchor. The horizontal axes represent the complexity metrics, including temporal buffer size, model size, and kMAC/pixel for encoding and decoding.
+
 <p align="center">
-    <img src="./assets/ComplexityAnalysis/SOTA_complexity_BT601.png" width="70%"/>
+    <img src="./assets/ComplexityAnalysis/SOTA_complexity_BT601_new.png" width="70%"/>
 </p>
 
 ## RD Performance
 
 * PSNR-RGB in BT.601
 <p align="center">
-    <img src="./assets/PSNR-RGB/BT601/PSNR-RGB_SOTA_RD_I32_Variable_UVG_ZoomIn_Short.png" width="32%" />
-    <img src="./assets/PSNR-RGB/BT601/PSNR-RGB_SOTA_RD_I32_Variable_MCL-JCV_ZoomIn_Short.png" width="32%" />
-    <img src="./assets/PSNR-RGB/BT601/PSNR-RGB_SOTA_RD_I32_Variable_HEVC-B_ZoomIn_Short.png" width="32%" />
-    <img src="./assets/PSNR-RGB/BT601/PSNR-RGB_SOTA_RD_I32_Variable_HEVC-C_ZoomIn_Short.png" width="32%" />
-    <img src="./assets/PSNR-RGB/BT601/PSNR-RGB_SOTA_RD_I32_Variable_HEVC-D_ZoomIn_Short.png" width="32.8%" />
-    <img src="./assets/PSNR-RGB/BT601/PSNR-RGB_SOTA_RD_I32_Variable_HEVC-E_ZoomIn_Short.png" width="32%" />
-    <img src="./assets/PSNR-RGB/BT601/PSNR-RGB_SOTA_RD_I32_Variable_HEVC-RGB_ZoomIn_Short.png" width="32%" />
+    <img src="./assets/PSNR-RGB/BT601/PSNR-RGB_SOTA_RD_I32_Variable_New_UVG_ZoomIn_Short.png" width="32%" />
+    <img src="./assets/PSNR-RGB/BT601/PSNR-RGB_SOTA_RD_I32_Variable_New_MCL-JCV_ZoomIn_Short.png" width="32%" />
+    <img src="./assets/PSNR-RGB/BT601/PSNR-RGB_SOTA_RD_I32_Variable_New_HEVC-B_ZoomIn_Short.png" width="32%" />
+    <img src="./assets/PSNR-RGB/BT601/PSNR-RGB_SOTA_RD_I32_Variable_New_HEVC-C_ZoomIn_Short.png" width="32%" />
+    <img src="./assets/PSNR-RGB/BT601/PSNR-RGB_SOTA_RD_I32_Variable_New_HEVC-D_ZoomIn_Short.png" width="32.8%" />
+    <img src="./assets/PSNR-RGB/BT601/PSNR-RGB_SOTA_RD_I32_Variable_New_HEVC-E_ZoomIn_Short.png" width="32%" />
+    <img src="./assets/PSNR-RGB/BT601/PSNR-RGB_SOTA_RD_I32_Variable_New_HEVC-RGB_ZoomIn_Short.png" width="32%" />
 </p>
 
 * PSNR-RGB in BT.709
 <p align="center">
-    <img src="./assets/PSNR-RGB/BT709/PSNR-RGB_SOTA_RD_I32_Variable_UVG_ZoomIn_Short_BT709.png" width="32%" />
-    <img src="./assets/PSNR-RGB/BT709/PSNR-RGB_SOTA_RD_I32_Variable_MCL-JCV_ZoomIn_Short_BT709.png" width="32.6%" />
-    <img src="./assets/PSNR-RGB/BT709/PSNR-RGB_SOTA_RD_I32_Variable_HEVC-B_ZoomIn_Short_BT709.png" width="31.8%" />
-    <img src="./assets/PSNR-RGB/BT709/PSNR-RGB_SOTA_RD_I32_Variable_HEVC-C_ZoomIn_Short_BT709.png" width="32%" />
-    <img src="./assets/PSNR-RGB/BT709/PSNR-RGB_SOTA_RD_I32_Variable_HEVC-D_ZoomIn_Short_BT709.png" width="33%" />
-    <img src="./assets/PSNR-RGB/BT709/PSNR-RGB_SOTA_RD_I32_Variable_HEVC-E_ZoomIn_Short_BT709.png" width="32.1%" />
-    <img src="./assets/PSNR-RGB/BT709/PSNR-RGB_SOTA_RD_I32_Variable_HEVC-RGB_ZoomIn_Short_BT709.png" width="32%" />
+    <img src="./assets/PSNR-RGB/BT709/PSNR-RGB_SOTA_RD_I32_Variable_New_UVG_ZoomIn_Short_BT709.png" width="32%" />
+    <img src="./assets/PSNR-RGB/BT709/PSNR-RGB_SOTA_RD_I32_Variable_New_MCL-JCV_ZoomIn_Short_BT709.png" width="32.6%" />
+    <img src="./assets/PSNR-RGB/BT709/PSNR-RGB_SOTA_RD_I32_Variable_New_HEVC-B_ZoomIn_Short_BT709.png" width="31.8%" />
+    <img src="./assets/PSNR-RGB/BT709/PSNR-RGB_SOTA_RD_I32_Variable_New_HEVC-C_ZoomIn_Short_BT709.png" width="32%" />
+    <img src="./assets/PSNR-RGB/BT709/PSNR-RGB_SOTA_RD_I32_Variable_New_HEVC-D_ZoomIn_Short_BT709.png" width="33%" />
+    <img src="./assets/PSNR-RGB/BT709/PSNR-RGB_SOTA_RD_I32_Variable_New_HEVC-E_ZoomIn_Short_BT709.png" width="32.1%" />
+    <img src="./assets/PSNR-RGB/BT709/PSNR-RGB_SOTA_RD_I32_Variable_New_HEVC-RGB_ZoomIn_Short_BT709.png" width="32%" />
 </p>
 
 * MS-SSIM-RGB in BT.601
@@ -72,8 +77,8 @@ cd HyTIP
 ## Pre-trained Weights
 
 Download the following pre-trained models and put them in the corresponding folder in `./models`.
-* [PSNR-RGB.pth.tar](https://github.com/NYCU-MAPL/HyTIP/releases/download/v1.0/PSNR-RGB.pth.tar)
-* [MS-SSIM-RGB.pth.tar](https://github.com/NYCU-MAPL/HyTIP/releases/download/v1.0/MS-SSIM-RGB.pth.tar)
+* [PSNR-RGB.pth.tar](https://github.com/NYCU-MAPL/HyTIP/releases/download/ModelWeights/PSNR-RGB.pth.tar)
+* [MS-SSIM-RGB.pth.tar](https://github.com/NYCU-MAPL/HyTIP/releases/download/ModelWeights/MS-SSIM-RGB.pth.tar)
 
 
 ## Example Usage
