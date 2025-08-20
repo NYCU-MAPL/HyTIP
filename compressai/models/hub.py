@@ -8,6 +8,7 @@ import torch.nn.functional as F
 import compressai.models.transform as ts
 
 from compressai.models.utils import bilineardownsacling
+from compressai.RIFE.FFNet import UpsampleSBlock
 
 from ..entropy_models import GaussianConditional, CompressionModel, CompressionModel_Inter, EntropyCoder_Inter
 from ..entropy_models.context_model import Checkerboard
@@ -22,10 +23,10 @@ from ..layers import (
     subpel_conv1x1, subpel_conv3x3,
 )
 from .networks import (
-    TopDown_extractor_Fusion,
+    TopDown_extractor, TopDown_extractor_Fusion,
     FeatureExtractor_Inter, MultiScaleContextFusion
 )
-from .block_mc import block_mc_func#, flow_warp
+from .block_mc import block_mc_func
 from .utils import get_padding_size, get_downsampled_shape
 from util.stream_helper_SPS import flatten_strings_list
 
@@ -127,6 +128,10 @@ class Intra_NoAR(CompressionModel):
         self.q_basic_dec = nn.Parameter(torch.ones((1, 128, 1, 1)))
         self.q_scale_dec = nn.Parameter(torch.ones((anchor_num, 1, 1, 1)))
         self.q_scale_dec_fine = None
+
+    def load_state_dict(self, state_dict, strict=True):
+        super().load_state_dict(state_dict, strict)
+        self.interpolate()
 
     def interpolate(self):
 
@@ -390,7 +395,8 @@ class MvEnc(nn.Module):
 
     def forward(self, x, context, quant_step):
         out = self.enc_1(x)
-        out = out * quant_step
+        if quant_step is not None:
+            out = out * quant_step
         
         out = self.enc_2(out)
 
@@ -440,7 +446,8 @@ class MvDec(nn.Module):
             feature = self.adaptor_1_1(torch.cat((x, context[1]), dim=1))
         
         out = self.dec_2(feature)
-        out = out * quant_step
+        if quant_step is not None:
+            out = out * quant_step
         
         mv = self.dec_3(out)
 
@@ -449,15 +456,24 @@ class MvDec(nn.Module):
 class Motion(CompressionModel_Inter):
     def __init__(self, ec_thread=False, stream_part=1, inplace=False, g_ch_z=64, channel_mv=64, channel_N=64, 
                  cond_source='flow_hat+ref_mv_feature', cond_input_dim=[2], enc_cond_dims=[64, 64], dec_cond_dims=[64, 64], cond_kernel_size=[5, 3], cond_scale_list=[4, 2], predprior_input_dim=5, temp_source='ref_intensity+ref_mv_y', 
-                 quant_mode='RUN', implicit_channel=2):
+                 variable_rate=True, quant_mode='estUN_outR', implicit_channel=2, add_fg=True):
         super().__init__(y_distribution='laplace', z_channel=g_ch_z, mv_z_channel=64,
                          ec_thread=ec_thread, stream_part=stream_part)
         
         self.__delattr__('bit_estimator_z')
         
+        self.variable_rate = variable_rate
+        self.cond_source = cond_source
+        self.cond_scale_list = cond_scale_list
+        self.temp_source = temp_source
         self.channel_mv = channel_mv
         
-        self.feature_extractor = TopDown_extractor_Fusion(cond_input_dim+enc_cond_dims, cond_kernel_size, cond_scale_list, implicit_channel)
+        
+        if len(cond_scale_list) > 0:
+            if self.cond_source in ['flow_hat']:
+                self.feature_extractor = TopDown_extractor(cond_input_dim+enc_cond_dims, cond_kernel_size, cond_scale_list)
+            elif self.cond_source in ['flow_hat+ref_mv_feature']:
+                self.feature_extractor = TopDown_extractor_Fusion(cond_input_dim+enc_cond_dims, cond_kernel_size, cond_scale_list, implicit_channel)
         
         self.mv_encoder = MvEnc(2, channel_mv, inplace=inplace, cond_source=cond_source, cond_dims=enc_cond_dims)
 
@@ -473,50 +489,99 @@ class Motion(CompressionModel_Inter):
             DepthConvBlock4(channel_N, channel_mv),
         )
 
-        self.temp_prior_fusion_adaptor_0 = DepthConvBlock_Inter(channel_mv * 1, channel_mv * 2, inplace=inplace)
-        self.temp_prior_fusion_adaptor_1 = DepthConvBlock_Inter(channel_mv * 3, channel_mv * 2, inplace=inplace)
-        
-        self.pred_prior = ts.GoogleAnalysisTransform(predprior_input_dim, channel_mv, 128, 3)
-        self.prior_fusion = nn.Sequential(
-            DepthConvBlock_Inter(channel_mv * 2, channel_mv * 3, inplace=inplace),
-            DepthConvBlock_Inter(channel_mv * 3, channel_mv * 3, inplace=inplace),
-        )
+        if self.temp_source in ['ref_intensity']:
+            self.pred_prior = ts.GoogleAnalysisTransform(predprior_input_dim, channel_mv, 128, 3)
+            
+            self.mv_y_prior_fusion_adaptor_temp_0 = DepthConvBlock_Inter(channel_mv * 1, channel_mv * 2, inplace=inplace)
+            self.mv_y_prior_fusion_adaptor_temp_1 = DepthConvBlock_Inter(channel_mv * 2, channel_mv * 2, inplace=inplace)
+            
+            self.PA = nn.Sequential(
+                DepthConvBlock_Inter(channel_mv * 2, channel_mv * 3, inplace=inplace),
+                DepthConvBlock_Inter(channel_mv * 3, channel_mv * 3, inplace=inplace),
+            )
+        elif self.temp_source in ['ref_intensity+ref_mv_y']:
+            self.temp_prior_fusion_adaptor_0 = DepthConvBlock_Inter(channel_mv * 1, channel_mv * 2, inplace=inplace)
+            self.temp_prior_fusion_adaptor_1 = DepthConvBlock_Inter(channel_mv * 3, channel_mv * 2, inplace=inplace)
+            
+            self.pred_prior = ts.GoogleAnalysisTransform(predprior_input_dim, channel_mv, 128, 3)
+            self.prior_fusion = nn.Sequential(
+                DepthConvBlock_Inter(channel_mv * 2, channel_mv * 3, inplace=inplace),
+                DepthConvBlock_Inter(channel_mv * 3, channel_mv * 3, inplace=inplace),
+            )
 
         self.gaussian_conditional = GaussianConditional(None, quant_mode=quant_mode)
 
         self.mv_decoder = MvDec(2, channel_mv, inplace=inplace, cond_source=cond_source, cond_dims=dec_cond_dims)
 
-        self.feature_generator = nn.Conv2d(channel_mv, implicit_channel, 3, padding=1)
         
-        self.mv_q_encoder = nn.Parameter(torch.ones((64, channel_mv, 1, 1)))
-        self.mv_q_decoder = nn.Parameter(torch.ones((64, channel_mv, 1, 1)))
+        if ('ref_mv_feature' in self.cond_source) and (add_fg or (channel_mv != implicit_channel)):
+            self.feature_generator = nn.Conv2d(channel_mv, implicit_channel, 3, padding=1)
+        
+        
+        if self.variable_rate:
+            self.mv_q_encoder = nn.Parameter(torch.ones((64, channel_mv, 1, 1)))
+            self.mv_q_decoder = nn.Parameter(torch.ones((64, channel_mv, 1, 1)))
 
     def mv_prior_param_decoder(self, mv_z_hat, dpb, slice_shape=None):
         mv_params = self.mv_hyper_prior_decoder(mv_z_hat)
         mv_params = self.slice_to_y(mv_params, slice_shape)
-        if dpb["ref_mv_y"] is None and dpb["temporal_input"] is None:
-            mv_params = self.temp_prior_fusion_adaptor_0(mv_params)
-        else:
-            assert dpb["ref_mv_y"] is not None and dpb["temporal_input"] is not None
-            temporal_params = self.pred_prior(dpb["temporal_input"])
-            mv_params = torch.cat((mv_params, dpb["ref_mv_y"], temporal_params), dim=1)
-            mv_params = self.temp_prior_fusion_adaptor_1(mv_params)
-        mv_params = self.prior_fusion(mv_params)
+        
+        if self.temp_source in ['ref_intensity']:
+            if dpb['temporal_input'] is None:
+                mv_params = self.mv_y_prior_fusion_adaptor_temp_0(mv_params)
+            else:
+                temporal_params = self.pred_prior(dpb['temporal_input'])
+                mv_params = torch.cat([mv_params, temporal_params], dim=1)
+                mv_params = self.mv_y_prior_fusion_adaptor_temp_1(mv_params)
+            mv_params = self.PA(mv_params)
+        
+        elif self.temp_source in ['ref_intensity+ref_mv_y']:
+            if dpb["ref_mv_y"] is None and dpb["temporal_input"] is None:
+                mv_params = self.temp_prior_fusion_adaptor_0(mv_params)
+            else:
+                assert dpb["ref_mv_y"] is not None and dpb["temporal_input"] is not None
+                temporal_params = self.pred_prior(dpb["temporal_input"])
+                mv_params = torch.cat((mv_params, dpb["ref_mv_y"], temporal_params), dim=1)
+                mv_params = self.temp_prior_fusion_adaptor_1(mv_params)
+            mv_params = self.prior_fusion(mv_params)
 
         return mv_params
         
     def quant(self, x):
-        return torch.round(x)
+        if self.training:
+            n = torch.round(x) - x
+            n = n.clone().detach()
+            return x + n
+        else:
+            return torch.round(x)
+    
+    def set_noise_level(self, noise_level):
+        self.noise_level = noise_level
+
+    def add_noise(self, x):
+        noise = torch.nn.init.uniform_(torch.zeros_like(x), -self.noise_level, self.noise_level)
+        noise = noise.clone().detach()
+        return x + noise
 
     def forward(self, est_mv, aux_buf={}):
+
+        if self.variable_rate:
         
-        q_index = aux_buf['index_list']
-        mv_y_q_enc = self.mv_q_encoder[q_index]
-        mv_y_q_dec = self.mv_q_decoder[q_index]
-        
+            q_index = aux_buf['index_list']
+            mv_y_q_enc = self.mv_q_encoder[q_index]
+            mv_y_q_dec = self.mv_q_decoder[q_index]
+        else:
+            mv_y_q_enc, mv_y_q_dec = None, None
+
         index = self.get_index_tensor(0, est_mv.device)
         
-        conds, _ = self.feature_extractor(aux_buf["cond_input"], aux_buf["ref_mv_feature"]) if aux_buf["cond_input"] is not None else (None, None)
+        
+        if len(self.cond_scale_list) > 0:
+
+            if self.cond_source in ['flow_hat']:
+                conds, _ = self.feature_extractor(aux_buf["cond_input"]) if aux_buf["cond_input"] is not None else (None, None)
+            elif self.cond_source in ['flow_hat+ref_mv_feature']:
+                conds, _ = self.feature_extractor(aux_buf["cond_input"], aux_buf["ref_mv_feature"]) if aux_buf["cond_input"] is not None else (None, None)
 
         if "compute_decode_macs" in aux_buf and aux_buf["compute_decode_macs"]:
             mv_y = torch.zeros([1, self.channel_mv, est_mv.shape[-2] // 16, est_mv.shape[-1] // 16]).to(est_mv.device)
@@ -538,9 +603,14 @@ class Motion(CompressionModel_Inter):
         
         mv_hat, mv_feature = self.mv_decoder(mv_y_hat, mv_y_q_dec, conds[::-1] if conds is not None else None)
 
-        mv_feature = self.feature_generator(mv_feature)
         
-        mv_z_for_bit = mv_z_hat
+        if hasattr(self, "feature_generator"):
+            mv_feature = self.feature_generator(mv_feature)
+        
+        if self.training:
+            mv_z_for_bit = self.add_noise(mv_z)
+        else:
+            mv_z_for_bit = mv_z_hat
 
         _, mv_z_likelihoods = self.get_z_bits(mv_z_for_bit, self.bit_estimator_z_mv, index)
 
@@ -645,7 +715,7 @@ class Motion(CompressionModel_Inter):
 
 class ContextualEncoder(nn.Module):
     def __init__(self, inplace=False, g_ch_1x=48, g_ch_2x=64, g_ch_4x=96, g_ch_8x=96, g_ch_16x=128,
-                 CTM_depth=2, CTM_head=8, CA_bias=False, 
+                 Add_CTM=False, CTM_depth=2, CTM_head=8, CA_bias=False, 
                  ):
         super().__init__()
         self.conv1 = nn.Conv2d(g_ch_1x + 3, g_ch_2x, 3, stride=2, padding=1)
@@ -655,35 +725,42 @@ class ContextualEncoder(nn.Module):
         self.conv3 = nn.Conv2d(g_ch_4x * 2, g_ch_8x, 3, stride=2, padding=1)
         self.conv4 = nn.Conv2d(g_ch_8x, g_ch_16x, 3, stride=2, padding=1)   # conv_for_CTM
         
-        self.CTM = CTM_CAB(dim=g_ch_16x,
-                                        depth=CTM_depth, 
-                                        num_heads=CTM_head,
-                                        CA_bias=CA_bias, 
-                                        )
+        self.Add_CTM = Add_CTM
+        if self.Add_CTM:
+            self.CTM = CTM_CAB(dim=g_ch_16x,
+                               depth=CTM_depth,
+                               num_heads=CTM_head,
+                               CA_bias=CA_bias,
+                               )
 
     def forward(self, x, context1, context2, context3, quant_step):
         feature = self.conv1(torch.cat([x, context1], dim=1))
         feature = self.res1(torch.cat([feature, context2], dim=1))
-        feature = feature * quant_step
+        if quant_step is not None:
+            feature = feature * quant_step
         feature = self.conv2(feature)
         feature = self.res2(torch.cat([feature, context3], dim=1))
         feature = self.conv3(feature)
         feature = self.conv4(feature)
         
-        feature = self.CTM(feature)['output']
+        if self.Add_CTM:
+        
+            feature = self.CTM(feature)['output']
             
         return feature
     
 class ContextualDecoder(nn.Module):
     def __init__(self, inplace=False, g_ch_2x=64, g_ch_4x=96, g_ch_8x=96, g_ch_16x=128,
-                 CTM_depth=2, CTM_head=8, CA_bias=False, 
+                 Add_CTM=False, CTM_depth=2, CTM_head=8, CA_bias=False, 
                  ):
         super().__init__()
-        self.CTM = CTM_CAB(dim=g_ch_16x,
-                                 depth=CTM_depth, 
-                                 num_heads=CTM_head,
-                                 CA_bias=CA_bias, 
-                                 )
+        self.Add_CTM = Add_CTM
+        if self.Add_CTM:
+            self.CTM = CTM_CAB(dim=g_ch_16x,
+                               depth=CTM_depth,
+                               num_heads=CTM_head,
+                               CA_bias=CA_bias,
+                               )
             
         self.up1 = subpel_conv3x3(g_ch_16x, g_ch_8x, 2)   # conv_for_CTM
         self.up2 = subpel_conv3x3(g_ch_8x, g_ch_4x, 2)
@@ -693,13 +770,15 @@ class ContextualDecoder(nn.Module):
         self.up4 = subpel_conv3x3(g_ch_2x * 2, 32, 2)
 
     def forward(self, x, context2, context3, quant_step):
-        x = self.CTM(x)['output']
+        if self.Add_CTM:
+            x = self.CTM(x)['output']
             
         feature = self.up1(x)
         feature = self.up2(feature)
         feature = self.res1(torch.cat([feature, context3], dim=1))
         feature = self.up3(feature)
-        feature = feature * quant_step
+        if quant_step is not None:
+            feature = feature * quant_step
         feature = self.res2(torch.cat([feature, context2], dim=1))
         feature = self.up4(feature)
         
@@ -717,8 +796,11 @@ class ReconGeneration(nn.Module):
         feature = self.first_conv(torch.cat((ctx, res), dim=1))
         feature = self.unet_1(feature)
         feature = self.unet_2(feature)
-            
-        recon = self.recon_conv(feature * quant_step)
+        
+        if quant_step is not None:
+            recon = self.recon_conv(feature * quant_step)
+        else:
+            recon = self.recon_conv(feature)
             
         return feature, recon
     
@@ -733,22 +815,38 @@ class Feature_Generator(nn.Module):
         return feature
 
 class Inter(CompressionModel_Inter):
-    def __init__(self, ec_thread=False, stream_part=1, inplace=False, g_ch_1x=48, g_ch_2x=64, g_ch_4x=96, g_ch_8x=96, g_ch_16x=128, g_ch_z=64, quant_mode='RUN', 
-                feature_channel=48, CTM_Params={}):
+    def __init__(self, ec_thread=False, stream_part=1, inplace=False, g_ch_1x=48, g_ch_2x=64, g_ch_4x=96, g_ch_8x=96, g_ch_16x=128, g_ch_z=64, quant_mode='estUN_outR', 
+                Pretrain=False, Add_Mask=True, no_implicit=False, buffering_type='hybrid', feature_channel=2, CTM_Params={}, no_context=False, variable_rate=True):
         super().__init__(y_distribution='laplace', z_channel=g_ch_z, mv_z_channel=64,
                          ec_thread=ec_thread, stream_part=stream_part)
         
         self.__delattr__('bit_estimator_z_mv')
-        
+
+        self.no_context = no_context
+        self.Add_Mask = Add_Mask
+        self.no_implicit = no_implicit
+        self.buffering_type = buffering_type
+        self.variable_rate = variable_rate
+        self.Pretrain = Pretrain
         self.g_ch_16x = g_ch_16x
         self.g_ch_z = g_ch_z
 
         self.mc_generator = ResidualBlock_Inter(g_ch_1x, 3, inplace=inplace)
 
-        self.MaskGenerator = MaskGeneration(in_channels=5, out_channels=1)
+        if self.Pretrain:
+            self.mc_generate_1 = nn.Conv2d(g_ch_1x, 3, 3, 1, 1)
+            self.mc_generate_2 = UpsampleSBlock(g_ch_2x, 3)
+            self.mc_generate_3 = UpsampleSBlock(g_ch_4x, g_ch_2x)
+            self.mc_generate_3_2 = UpsampleSBlock(g_ch_2x, 3)
+            
+        if self.Add_Mask:
+            self.MaskGenerator = MaskGeneration(in_channels=5, out_channels=1)
+        
 
         self.feature_adaptor_I = nn.Conv2d(3, g_ch_1x, 3, stride=1, padding=1)
-        self.feature_adaptor = nn.ModuleList([nn.Conv2d(feature_channel+3, g_ch_1x, 1) for _ in range(3)])
+        
+        if self.buffering_type == 'hybrid':
+            self.feature_adaptor = nn.ModuleList([nn.Conv2d(feature_channel+3, g_ch_1x, 1) for _ in range(3)])
         
         self.feature_extractor = FeatureExtractor_Inter(inplace, g_ch_1x, g_ch_2x, g_ch_4x)
         self.context_fusion_net = MultiScaleContextFusion(inplace, g_ch_1x, g_ch_2x, g_ch_4x)
@@ -776,7 +874,8 @@ class Inter(CompressionModel_Inter):
 
         self.y_prior_fusion_adaptor_0 = DepthConvBlock_Inter(g_ch_16x * 2, g_ch_16x * 3,
                                                               inplace=inplace)
-        self.y_prior_fusion_adaptor_1 = DepthConvBlock_Inter(g_ch_16x * 3, g_ch_16x * 3,
+        if not self.no_implicit:
+            self.y_prior_fusion_adaptor_1 = DepthConvBlock_Inter(g_ch_16x * 3, g_ch_16x * 3,
                                                               inplace=inplace)
 
         self.y_prior_fusion = nn.Sequential(
@@ -784,30 +883,39 @@ class Inter(CompressionModel_Inter):
             DepthConvBlock_Inter(g_ch_16x * 3, g_ch_16x * 3, inplace=inplace),
         )
 
-        self.context_model = Checkerboard(g_ch_16x, quant_mode=quant_mode)
+        if self.no_context:
+            self.gaussian_conditional = GaussianConditional(None, quant_mode=quant_mode)
+        else:
+            self.context_model = Checkerboard(g_ch_16x, quant_mode=quant_mode)
 
         self.contextual_decoder = ContextualDecoder(inplace, g_ch_2x, g_ch_4x, g_ch_8x, g_ch_16x,
                                                     **CTM_Params)
         self.recon_generation_net = ReconGeneration(ctx_channel=g_ch_1x, inplace=inplace, g_ch_1x=g_ch_1x)
 
-        self.frame_feature_generator = Feature_Generator(g_ch_1x, out_channel=feature_channel)
+        if self.buffering_type == 'hybrid':
+            self.frame_feature_generator = Feature_Generator(g_ch_1x, out_channel=feature_channel)
 
-        self.q_encoder = nn.Parameter(torch.ones((64, g_ch_2x * 2, 1, 1)))
-        self.q_decoder = nn.Parameter(torch.ones((64, g_ch_2x, 1, 1)))
-        self.q_feature = nn.Parameter(torch.ones((64, g_ch_1x, 1, 1)))
-        self.q_recon = nn.Parameter(torch.ones((64, g_ch_1x, 1, 1)))
+        if self.variable_rate:
+            self.q_encoder = nn.Parameter(torch.ones((64, g_ch_2x * 2, 1, 1)))
+            self.q_decoder = nn.Parameter(torch.ones((64, g_ch_2x, 1, 1)))
+            self.q_feature = nn.Parameter(torch.ones((64, g_ch_1x, 1, 1)))
+            self.q_recon = nn.Parameter(torch.ones((64, g_ch_1x, 1, 1)))
     
     def multi_scale_feature_extractor(self, dpb, fa_idx):
         if dpb["ref_feature"] is None:
             feature = self.feature_adaptor_I(dpb["ref_frame"])
+        
         else:
             feature = self.feature_adaptor[fa_idx](torch.cat((dpb["ref_feature"], dpb["ref_frame"]), dim=1))
             
-        feature = self.feature_extractor(feature, dpb["q_feature"])
+        if self.variable_rate:
+            feature = self.feature_extractor(feature, dpb["q_feature"])
+        else:
+            feature = self.feature_extractor(feature)
 
         return feature
     
-    def motion_compensation(self, dpb, mv, fa_idx):
+    def motion_compensation(self, dpb, mv, fa_idx, Pretrain=False):
         warpframe = block_mc_func(dpb["ref_frame"], mv)
         mv2 = bilineardownsacling(mv) / 2
         mv3 = bilineardownsacling(mv2) / 2
@@ -820,15 +928,17 @@ class Inter(CompressionModel_Inter):
         context1, context2, context3 = self.context_fusion_net(context1, context2, context3)
 
         mc_frame = self.mc_generator(context1)
-
-        return context1, context2, context3, warpframe, mc_frame
+        if Pretrain:
+            return self.mc_generate_1(context1), self.mc_generate_2(context2), self.mc_generate_3_2(self.mc_generate_3(context3)), warpframe, mc_frame
+        else:
+            return context1, context2, context3, warpframe, mc_frame
     
     def contextual_prior_param_decoder(self, z_hat, dpb, context3, slice_shape=None):
         hierarchical_params = self.contextual_hyper_prior_decoder(z_hat)
         hierarchical_params = self.slice_to_y(hierarchical_params, slice_shape)
         temporal_params = self.temporal_prior_encoder(context3)
         ref_y = dpb["ref_y"]
-        if ref_y is None:
+        if self.no_implicit or ref_y is None:
             params = torch.cat((temporal_params, hierarchical_params), dim=1)
             params = self.y_prior_fusion_adaptor_0(params)
         else:
@@ -844,24 +954,48 @@ class Inter(CompressionModel_Inter):
         return x_hat, feature
     
     def quant(self, x):
-        return torch.round(x)
+        if self.training:
+            n = torch.round(x) - x
+            n = n.clone().detach()
+            return x + n
+        else:
+            return torch.round(x)
+
+    def set_noise_level(self, noise_level):
+        self.noise_level = noise_level
+
+    def add_noise(self, x):
+        noise = torch.nn.init.uniform_(torch.zeros_like(x), -self.noise_level, self.noise_level)
+        noise = noise.clone().detach()
+        return x + noise
     
     def forward(self, x, aux_buf={}):
-        q_index = aux_buf['index_list']
-        y_q_enc = self.q_encoder[q_index]
-        y_q_dec = self.q_decoder[q_index]
-        q_feature = self.q_feature[q_index]
-        q_recon = self.q_recon[q_index]
-        aux_buf['q_feature'] = q_feature
+        if not self.variable_rate:
+            y_q_enc = y_q_dec = aux_buf['q_feature'] = q_recon = None
+        else:
+            q_index = aux_buf['index_list']
+            y_q_enc = self.q_encoder[q_index]
+            y_q_dec = self.q_decoder[q_index]
+            q_feature = self.q_feature[q_index]
+            q_recon = self.q_recon[q_index]
+            aux_buf['q_feature'] = q_feature
         
-        fa_idx = aux_buf['fa_idx'] # frame_type_id
+        if self.no_implicit:
+            fa_idx = 0
+            aux_buf["ref_y"] = None
+            aux_buf["ref_feature"] = None
+        else:
+            fa_idx = aux_buf['fa_idx'] # frame_type_id
         
         index = self.get_index_tensor(0, x.device)
 
         context1, context2, context3, _, mc_frame = self.motion_compensation(aux_buf, aux_buf["mv_hat"], fa_idx)
         
-        mask = self.MaskGenerator(torch.cat([aux_buf["mv_hat"], mc_frame], dim=1))
-        prediction_signal = mask * mc_frame
+        if not self.Add_Mask:
+            prediction_signal = mc_frame
+        else:
+            mask = self.MaskGenerator(torch.cat([aux_buf["mv_hat"], mc_frame], dim=1))
+            prediction_signal = mask * mc_frame
         
         res = x - prediction_signal
 
@@ -880,35 +1014,58 @@ class Inter(CompressionModel_Inter):
 
         # hyperprior decoding
         params = self.contextual_prior_param_decoder(z_hat, aux_buf, context3, slice_shape)
+        
+        if self.no_context:
+            q_enc, q_dec, scales_hat, means_hat = self.separate_prior(params, True)
+            y = y * q_enc
+            y_hat, y_likelihoods = self.gaussian_conditional(y, scales_hat, means_hat)
+            y_hat = y_hat * q_dec
 
-        q_enc, q_dec, scales, means = self.separate_prior(params, True)
-        y = y * q_enc
-        
-        y_hat, y_likelihoods, entropy_info = self.context_model(y, torch.cat((scales, means), dim=1))
-        means_hat, scales_hat = entropy_info['mean'], entropy_info['scale']
-        
-        y_hat = y_hat * q_dec
+            # y_q = self.quant(y-means_hat)
+            # y_for_bit = y_q
+            # bits_y, _ = self.get_y_laplace_bits(y_for_bit, scales_hat)
+
+        else:
+            q_enc, q_dec, scales, means = self.separate_prior(params, True)
+            y = y * q_enc
+            
+            y_hat, y_likelihoods, entropy_info = self.context_model(y, torch.cat((scales, means), dim=1))
+            means_hat, scales_hat = entropy_info['mean'], entropy_info['scale']
+            
+            y_hat = y_hat * q_dec
 
         x_hat, feature = self.get_recon_and_feature(y_hat, context1, context2, context3, y_q_dec, q_recon)
 
-        frame_feature = self.frame_feature_generator(feature)
+        if self.buffering_type == 'hybrid':
+            frame_feature = self.frame_feature_generator(feature)
 
         rec_frame = x_hat + prediction_signal
 
-        z_for_bit = z_hat
+        if self.training:
+            z_for_bit = self.add_noise(z)
+        else:
+            z_for_bit = z_hat
 
         _, z_likelihoods = self.get_z_bits(z_for_bit, self.bit_estimator_z, index)
+
 
         data = {
             "mean": means_hat,
             "scale": scales_hat, 
-            "ref_y": y_hat, 
-            "ref_feature": frame_feature, 
             "res": res,
             "res_hat": x_hat,
-            "mc_frame": mc_frame, 
-            "mask": mask
+            "mc_frame": mc_frame
         }
+
+        if not self.no_implicit:
+            data.update({
+                "ref_y": y_hat,
+                "ref_feature": frame_feature
+            })
+        if self.Add_Mask:
+            data.update({
+                "mask": mask
+            })
 
         return rec_frame, (y_likelihoods, z_likelihoods), data
     
@@ -1009,7 +1166,7 @@ class Inter(CompressionModel_Inter):
         slice_shape = self.get_to_y_slice_shape(y_height, y_width)
         z_hat = self.bit_estimator_z.decode_stream(z_size, dtype, device, 0)
 
-        params = self.contextual_prior_param_decoder(z_hat, aux_buf, context3, slice_shape) 
+        params = self.contextual_prior_param_decoder(z_hat, aux_buf, context3, slice_shape)
 
         _, q_dec, scales, means = self.separate_prior(params, True)
 
@@ -1026,12 +1183,13 @@ class Inter(CompressionModel_Inter):
 
         rec_frame = x_hat + prediction_signal
 
-        data = {"ref_y": y_hat,
-                "ref_feature": frame_feature,
-                "res_hat": x_hat,
-                "mc_frame": mc_frame,
-                "mask": mask
-                }
+        data = {
+            "ref_y": y_hat,
+            "ref_feature": frame_feature,
+            "res_hat": x_hat,
+            "mc_frame": mc_frame,
+            "mask": mask
+        }
         
         return rec_frame, data
 

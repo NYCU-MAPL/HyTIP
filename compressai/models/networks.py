@@ -107,11 +107,12 @@ class FeatureExtractor_Inter(nn.Module):
         self.conv3 = nn.Conv2d(g_ch_2x, g_ch_4x, 3, stride=2, padding=1)
         self.res_block3 = ResBlock_Inter(g_ch_4x, inplace=inplace)
 
-    def forward(self, feature, quant_step):
+    def forward(self, feature, quant_step=None):
         layer1 = self.conv1(feature)
         layer1 = self.res_block1(layer1)
         
-        feature = feature * quant_step
+        if quant_step is not None:
+            feature = feature * quant_step
 
         layer2 = self.conv2(layer1)
         layer2 = self.res_block2(layer2)

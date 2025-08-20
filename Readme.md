@@ -2,6 +2,8 @@
 
 [Our paper](https://arxiv.org/abs/2508.02072) has been accepted to ICCV 2025. This repository contains the source code for HyTIP.
 
+Please note that we have optimized the training procedure and enhanced HyTIP’s performance beyond the results reported in the ICCV paper. Updated results are available in this repository and arXiv paper.
+
 
 ## Abstract
 
@@ -15,6 +17,7 @@
 <p align="center">
     <img src="./assets/ComplexityAnalysis/SOTA_complexity_BT601_new.png" width="70%"/>
 </p>
+
 
 ## RD Performance
 
@@ -74,22 +77,24 @@ cd HyTIP
 ```
 
 
-## Pre-trained Weights
+## Model Weights
 
 Download the following pre-trained models and put them in the corresponding folder in `./models`.
 * [PSNR-RGB.pth.tar](https://github.com/NYCU-MAPL/HyTIP/releases/download/ModelWeights/PSNR-RGB.pth.tar)
 * [MS-SSIM-RGB.pth.tar](https://github.com/NYCU-MAPL/HyTIP/releases/download/ModelWeights/MS-SSIM-RGB.pth.tar)
 
 
-## Example Usage
+## Example of HyTIP Evaluation
 
-Example of testing the pre-trained model:
-
-`python HyTIP.py --MENet SPy --if_coder Intra --cond_motion_coder_conf ./config/Motion.yml --residual_coder_conf ./config/Inter.yml -n 0 --gpus 1 --iframe_quality {0...63} --QP {0...63} --experiment_name HyTIP {--ssim} --test --gop 32 --test_dataset {HEVC-B} --color_transform {BT601,BT709} --test_crop --remove_scene_cut -data {dataset_root}`
+`python HyTIP.py --cond_motion_coder_conf ./config/Motion.yml --residual_coder_conf ./config/Inter.yml -n 0 --gpus 1 --iframe_quality {0...63} --QP {0...63} --experiment_name HyTIP {--ssim} --test --gop 32 --test_dataset {HEVC-B UVG} --color_transform {BT601,BT709} --test_crop --remove_scene_cut -data {dataset_root}`
 
 * Add `--ssim` to evaluate MS-SSIM-RGB model
 * Add `--compress` / `--decompress` to support compressing the bitstream to a binary file and decompressing from it, and use `--test_seqs {BasketballDrive}` to specify the target sequence.
-* Organize your test dataset according to the following file structure:
+* Add the following argument(s) to enable complexity calculation:
+    * `--compute_macs`: compute encoding kMAC/pixel.
+    * `--compute_macs --compute_decode_macs`: compute decoding kMAC/pixel.
+    * `--compute_model_size`: compute model size (M).
+* Organize your testing datasets according to the following file structure:
     ```
     {dataset_root}/
         ├ UVG/
@@ -102,7 +107,13 @@ Example of testing the pre-trained model:
     ```
 
 
+## Training Procedure
+
+For details of the training procedure, please refer to [train_cfg/training_procedure.md](train_cfg/training_procedure.md). Please note that this training procedure has been updated, which differs from the training procedures reported in the ICCV paper.
+
+
 ## Citation
+
 If you find our project useful, please cite the following paper:
 ```
 @inproceedings{HyTIP,
@@ -115,4 +126,5 @@ If you find our project useful, please cite the following paper:
 
 
 ## Acknowledgement
-Our work is based on the [CompressAI](https://github.com/InterDigitalInc/CompressAI) framework, utilizing intra codecs from [DCVC-DC](https://github.com/microsoft/DCVC/tree/main/DCVC-family/DCVC-DC) and adapting the CNN-based network structure from [DCVC-FM](https://github.com/microsoft/DCVC/tree/main/DCVC-family/DCVC-FM) for motion codecs and inter-frame codecs. We thank the authors for making their code open-source.
+
+Our work is based on the [CompressAI](https://github.com/InterDigitalInc/CompressAI) framework, utilizing intra codecs from [DCVC-DC](https://github.com/microsoft/DCVC/tree/main/DCVC-family/DCVC-DC), motion estimation network from [SPyNet](https://github.com/anuragranj/spynet), and adapting the CNN-based network structure from [DCVC-FM](https://github.com/microsoft/DCVC/tree/main/DCVC-family/DCVC-FM) for motion codecs and inter-frame codecs. We thank the authors for making their code open-source.

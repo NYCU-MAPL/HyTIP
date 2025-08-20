@@ -1,4 +1,3 @@
-# import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -24,7 +23,12 @@ class Iframe_Coder(nn.Module):
             else:
                 assert quality_level in range(64), f"Intra can't support quality level {quality_level}."
             self.net = Intra_NoAR()
-        
+            
+            if ms_ssim:
+                self.net.load_state_dict(torch.load('./models/cvpr2023_image_ssim.pth.tar', map_location='cuda'), strict=True)
+            elif not ms_ssim:
+                self.net.load_state_dict(torch.load('./models/cvpr2023_image_psnr.pth.tar', map_location='cuda'), strict=True)
+
         self.align = Alignment(64)
         if model_name == 'Intra':
             self.q_index = quality_level - 2
@@ -111,8 +115,8 @@ class InterCoder(nn.Module):
             
         return rec_frame, likelihood_r, data
     
-    # def set_noise_level(self, noise):
-    #     self.net.set_noise_level(noise)
+    def set_noise_level(self, noise):
+        self.net.set_noise_level(noise)
 
     def motion_compensation(self, dpb, mv, fa_idx, Pretrain=False):
         output = self.net.motion_compensation(dpb, mv, fa_idx, Pretrain)
@@ -146,6 +150,9 @@ class MotionCoder(nn.Module):
         
         return rec_frame, likelihood_m, data
     
+    def set_noise_level(self, noise):
+        self.net.set_noise_level(noise)
+
     def compress(self, coding_flow, aux_buf=None):
 
         rec_frame, data = self.net.compress(coding_flow, aux_buf=aux_buf)

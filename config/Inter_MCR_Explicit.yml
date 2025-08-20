@@ -14,14 +14,7 @@
         quant_mode      : estUN_outR
         Pretrain        : False
         Add_Mask        : True
-        no_implicit     : False
-        buffering_type  : hybrid
-        feature_channel : 2
-        no_context      : False
-        variable_rate   : True
-
-        CTM_Params:
-            Add_CTM     : True
-            CTM_depth   : 2
-            CTM_head    : 8
-            CA_bias     : False
+        no_implicit     : True
+        buffering_type  : NULL
+        no_context      : True
+        variable_rate   : False

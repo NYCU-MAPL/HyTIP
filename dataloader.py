@@ -1,24 +1,99 @@
 import math
 import os
+import random
+from glob import glob
 from torch import stack
 from torch.utils.data import Dataset as torchData
 from torchvision import transforms
 
-from util.vision import imgloader
-import torch.nn.functional as F
-    
+from util.seed import seed_everything
+from util.vision import imgloader, rgb_transform
 
 YCBCR_WEIGHTS = {
     # Spec: (K_r, K_g, K_b) with K_g = 1 - K_r - K_b
     "ITU-R_BT.709": (0.2126, 0.7152, 0.0722)
 }
 
+    
+class VideoData(torchData):
+    """Video Dataset
+
+    Args:
+        root
+        mode
+        frames
+        transform
+    """
+
+    def __init__(self, root, frames, transform=rgb_transform, epoch_ratio=1):
+        super().__init__()
+        self.folder = glob(root + 'sequences/*/*/')
+        self.frames = frames
+        self.transform = transform
+
+        assert 0 < epoch_ratio and epoch_ratio <= 1
+        self.epoch_ratio = epoch_ratio
+
+    def __len__(self):
+        return int(len(self.folder) * self.epoch_ratio)
+
+    @property
+    def info(self):
+        gop = self[0]
+        return "\nGop size: {}".format(gop.shape)
+
+    def __getitem__(self, index):
+        path = self.folder[index]
+        seed = random.randint(0, 1e9)
+        imgs = []
+        for f in range(1, self.frames+1):
+            seed_everything(seed)
+            file = path + 'im' + str(f) + '.png'
+            imgs.append(self.transform(imgloader(file)))
+
+        return stack(imgs)
+
+
+class BVI_Dataset(torchData):
+    def __init__(self, root, frames, transform=rgb_transform, epoch_ratio=1., directions=[1, -1], intervals=[1, 2]):
+        super().__init__()
+        self.folder = root
+        self.video_list = os.listdir(root)
+        self.frames = frames
+        self.transform = transform
+        assert 0 < epoch_ratio and epoch_ratio <= 1
+        self.epoch_ratio = epoch_ratio
+        self.directions = directions
+        self.intervals = intervals
+
+    def __len__(self):
+        return int(len(self.video_list) * self.epoch_ratio)
+
+    def __getitem__(self, index):
+        seed = random.randint(0, 1e9)
+        
+        seq_len = len(os.listdir(f"{self.folder}/{self.video_list[index]}"))
+        direction = random.choice(self.directions)
+        interval = random.choice(self.intervals)
+
+        if direction == 1:
+            start_index = random.randint(0, (seq_len - 1) - (self.frames-1) * interval)
+        elif direction == -1:
+            start_index = random.randint((self.frames-1) * interval, (seq_len - 1))
+        
+        imgs = []
+        for i in range(0, self.frames):
+            seed_everything(seed)
+            frame_index = start_index + i * direction * interval
+            frame_path = f"{self.folder}/{self.video_list[index]}/Frame_{str(frame_index)}.png"
+            imgs.append(self.transform(imgloader(frame_path)))
+        return stack(imgs)
+    
 
 class VideoTestData(torchData):
     def __init__(self, root, first_gop=False, sequence=('U', 'B'), GOP=32, test_seq_len=96, use_seqs=[], full_seq=False, color_transform='BT601'):
         super(VideoTestData, self).__init__()
         
-        # assert GOP in [12, 16, 32], ValueError
         self.root = root
 
         self.seq_name = []
@@ -69,7 +144,6 @@ class VideoTestData(torchData):
             dataset_name_list.extend(['HEVC-D']*4)
 
         if 'HEVC-E' in sequence:
-            # self.seq_name.extend(['FourPeople_1280x720', 'Johnny_1280x720', 'KristenAndSara_1280x720'])
             self.seq_name.extend(['FourPeople', 'Johnny', 'KristenAndSara'])
             if GOP in [12, 16]:
                 seq_len.extend([100]*3)

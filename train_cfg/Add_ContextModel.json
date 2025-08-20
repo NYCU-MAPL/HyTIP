@@ -1,0 +1,102 @@
+{   "phase": {
+    "trainRNN_Context_Only_weight": 3,
+    "trainRNN_ContextDecoder_weight": 5,
+    "trainRNN_Res_Inter_weight": 8,
+    "trainRNN_Res_weight": 10,
+    "trainRNN_weight": 12,
+    "trainRNN_ME_weight": 24
+    },
+
+"trainRNN_Context_Only_weight": {
+    "batch_size": 12, 
+    "lr": 1e-4, 
+    "RNN": 1, 
+    "strategy": {"stage": "fullgop"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion", "Residual"],
+    "re-activate_modules": [["Residual", "context_model"]],
+    "loss_on": {"R": "rate", "D": "frame_weight*distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.5},
+    "max_num_Pframe": 4,
+    "train_len": 0.5
+    },
+
+"trainRNN_ContextDecoder_weight": {
+    "batch_size": 12, 
+    "lr": 1e-5, 
+    "RNN": 1, 
+    "strategy": {"stage": "fullgop"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion", "Residual"],
+    "re-activate_modules": [
+        ["Residual", "context_model"], ["Residual", "bit_estimator_z"], 
+        ["Residual", "contextual_hyper_prior_encoder"], ["Residual", "contextual_hyper_prior_decoder"], 
+        ["Residual", "temporal_prior_encoder"], 
+        ["Residual", "y_prior_fusion_adaptor_0"], ["Residual", "y_prior_fusion_adaptor_1"],
+        ["Residual", "y_prior_fusion"],
+        ["Residual", "contextual_decoder"], ["Residual", "recon_generation_net"]
+    ],
+    "loss_on": {"R": "rate", "D": "frame_weight*distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.5},
+    "max_num_Pframe": 4,
+    "train_len": 0.5
+    },
+    
+"trainRNN_Res_Inter_weight": {
+    "batch_size": 11, 
+    "lr": 1e-5, 
+    "RNN": 1, 
+    "strategy": {"stage": "fullgop"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion", "Residual"], 
+    "re-activate_modules": [
+        ["Residual", "MaskGenerator"], 
+        ["Residual", "contextual_encoder"], ["Residual", "contextual_decoder"], ["Residual", "recon_generation_net"],
+        ["Residual", "context_model"], ["Residual", "bit_estimator_z"], 
+        ["Residual", "contextual_hyper_prior_encoder"], ["Residual", "contextual_hyper_prior_decoder"], 
+        ["Residual", "temporal_prior_encoder"], 
+        ["Residual", "y_prior_fusion_adaptor_0"], ["Residual", "y_prior_fusion_adaptor_1"],
+        ["Residual", "y_prior_fusion"]
+    ],
+    "loss_on": {"R": "rate", "D": "frame_weight*distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.5},
+    "max_num_Pframe": 4,
+    "train_len": 0.5
+    },
+
+"trainRNN_Res_weight": {
+    "batch_size": 11, 
+    "lr": 1e-5, 
+    "RNN": 1, 
+    "strategy": {"stage": "fullgop"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "rate", "D": "frame_weight*distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 4,
+    "train_len": 0.5
+    },
+
+"trainRNN_weight": {
+    "batch_size": 11, 
+    "lr": 1e-5, 
+    "RNN": 1, 
+    "strategy": {"stage": "fullgop"}, 
+    "frozen_modules": ["if_model", "MENet"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "rate", "D": "frame_weight*distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 4,
+    "train_len": 0.5
+    },
+
+"trainRNN_ME_weight": {
+    "batch_size": 11, 
+    "lr": 1e-5, 
+    "RNN": 1, 
+    "strategy": {"stage": "fullgop"}, 
+    "frozen_modules": ["if_model"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "rate", "D": "frame_weight*distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 4,
+    "train_len": 0.5
+    }
+}

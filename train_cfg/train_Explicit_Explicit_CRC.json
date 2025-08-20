@@ -1,0 +1,437 @@
+{   "phase": {
+    "trainMV_1": 16, 
+    "MC_Stage1_2P_1": 18, 
+    "MC_Stage2_2P_1": 21,
+    "MC_Stage3_2P_1": 24,
+    "MC_Stage4_2P_1": 27,
+    "MC_Stage4_3P_1": 30,
+    "MC_Stage4_4P_1": 33,
+    "trainRes_1Pframe_1": 35,
+    "trainMC_2Pframes_1": 41,
+    "trainRes_Inter_2Pframes_1": 43,
+    "trainRes_2Pframes_1": 49,
+    "trainRes_fullgop_1": 54,
+    "trainAll_2Pframes_1": 60,
+    "trainAll_fullgop_1": 65,
+    "trainRNN_1": 68,
+    "trainRNN_ME_1": 81,
+    "trainMV_2": 89, 
+    "MC_Stage1_2P_2": 91, 
+    "MC_Stage2_2P_2": 84,
+    "MC_Stage3_2P_2": 97,
+    "MC_Stage4_2P_2": 100,
+    "MC_Stage4_3P_2": 103,
+    "MC_Stage4_4P_2": 106,
+    "trainRes_1Pframe_2": 108,
+    "trainMC_2Pframes_2": 111,
+    "trainRes_Inter_2Pframes_2": 113,
+    "trainRes_2Pframes_2": 119,
+    "trainRes_fullgop_2": 124,
+    "trainAll_2Pframes_2": 130,
+    "trainAll_fullgop_2": 135,
+    "trainRNN_2": 138,
+    "trainRNN_ME_2": 150
+    },
+
+"trainMV_1": {
+    "batch_size": 64,
+    "lr": 1e-4, 
+    "strategy": {"stage": "2Pframes", "random": 1}, 
+    "mode": "motion", 
+    "frozen_modules": ["if_model", "MENet"],     
+    "re-activate_modules": [],        
+    "loss_on": {"R": "m_rate", "D": "warped_distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "train_len": 1
+    },
+
+"MC_Stage1_2P_1": {
+    "batch_size": 64,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "trainmc"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "None", "D": "0_0_0_1/1"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 2,
+    "train_len": 1
+    },
+
+"MC_Stage2_2P_1": {
+    "batch_size": 64,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "trainmc"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "None", "D": "0_0_1_0.5/2"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 2,
+    "train_len": 1
+    },
+
+"MC_Stage3_2P_1": {
+    "batch_size": 64,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "trainmc"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "None", "D": "0_1_0.5_0.25/3"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 2,
+    "train_len": 1
+    },
+
+"MC_Stage4_2P_1": {
+    "batch_size": 64,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "trainmc"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "None", "D": "1_0.5_0.25_0.125/4"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 2,
+    "train_len": 1
+    },
+
+"MC_Stage4_3P_1": {
+    "batch_size": 64,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "trainmc"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "None", "D": "1_0.5_0.25_0.125/4"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 3,
+    "train_len": 1
+    },
+
+"MC_Stage4_4P_1": {
+    "batch_size": 64,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "trainmc"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "None", "D": "1_0.5_0.25_0.125/4"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 4,
+    "train_len": 1
+    },
+
+"trainRes_1Pframe_1": {
+    "batch_size": 58,
+    "lr": 1e-4, 
+    "strategy": {"stage": "1Pframe", "random": 1},  
+    "frozen_modules": ["if_model", "MENet", "CondMotion", "Residual"], 
+    "re-activate_modules": [["Residual", "gaussian_conditional"], ["Residual", "contextual_encoder"], ["Residual", "contextual_hyper_prior_encoder"], ["Residual", "contextual_hyper_prior_decoder"], ["Residual", "temporal_prior_encoder"], ["Residual", "y_prior_fusion_adaptor_0"], ["Residual", "y_prior_fusion"], ["Residual", "contextual_decoder"], ["Residual", "recon_generation_net"], ["Residual", "bit_estimator_z"]],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.5},
+    "train_len": 1
+    },
+
+"trainMC_2Pframes_1": {
+    "batch_size": 26,
+    "lr": 1e-4, 
+    "strategy": {"stage": "2Pframes", "random": 1},
+    "mode": "residual",
+    "frozen_modules": ["if_model", "MENet", "CondMotion", "Residual"],
+    "re-activate_modules": [["Residual", "feature_adaptor_I"], ["Residual", "feature_extractor"], ["Residual", "context_fusion_net"], ["Residual", "mc_generator"]],
+    "loss_on": {"R": "rate", "D": "0.5*mc_distortion/0.5*distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "train_len": 1
+    },
+
+"trainRes_Inter_2Pframes_1": {
+    "batch_size": 30,
+    "lr": 1e-4, 
+    "strategy": {"stage": "2Pframes", "random": 1}, 
+    "mode": "residual", 
+    "frozen_modules": ["if_model", "MENet", "CondMotion", "Residual"], 
+    "re-activate_modules": [["Residual", "gaussian_conditional"], ["Residual", "contextual_encoder"], ["Residual", "contextual_hyper_prior_encoder"], ["Residual", "contextual_hyper_prior_decoder"], ["Residual", "temporal_prior_encoder"], ["Residual", "y_prior_fusion_adaptor_0"], ["Residual", "y_prior_fusion"], ["Residual", "contextual_decoder"], ["Residual", "recon_generation_net"], ["Residual", "bit_estimator_z"]],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.5},
+    "train_len": 1
+    },
+
+"trainRes_2Pframes_1": {
+    "batch_size": 26,
+    "lr": 1e-4, 
+    "strategy": {"stage": "2Pframes", "random": 1}, 
+    "mode": "residual",
+    "frozen_modules": ["if_model", "MENet", "CondMotion"], 
+    "re-activate_modules": [],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.5},
+    "train_len": 1
+    },
+
+"trainRes_fullgop_1": {
+    "batch_size": 12,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "fullgop"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 4,
+    "train_len": 1
+    },
+
+"trainAll_2Pframes_1": {
+    "batch_size": 24,
+    "lr": 1e-4,  
+    "strategy": {"stage": "2Pframes", "random": 1}, 
+    "mode": "residual", 
+    "frozen_modules": ["if_model", "MENet"],             
+    "re-activate_modules": [],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "train_len": 1
+    },
+
+"trainAll_fullgop_1": {
+    "batch_size": 10,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "fullgop"}, 
+    "frozen_modules": ["if_model", "MENet"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 4,
+    "train_len": 1
+    },
+
+"trainRNN_1": {
+    "batch_size": 10,
+    "lr": 1e-5, 
+    "RNN": 1, 
+    "strategy": {"stage": "fullgop"}, 
+    "frozen_modules": ["if_model", "MENet"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 4,
+    "train_len": 1
+    },
+
+"trainRNN_ME_1": {
+    "batch_size": 10,
+    "lr": 1e-5, 
+    "RNN": 1, 
+    "strategy": {"stage": "fullgop"}, 
+    "frozen_modules": ["if_model"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 4,
+    "train_len": 1
+    },
+
+"trainMV_2": {
+    "batch_size": 64,
+    "lr": 1e-4, 
+    "strategy": {"stage": "2Pframes", "random": 1}, 
+    "mode": "motion", 
+    "frozen_modules": ["if_model", "MENet"],     
+    "re-activate_modules": [],        
+    "loss_on": {"R": "m_rate", "D": "warped_distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "train_len": 1
+    },
+
+"MC_Stage1_2P_2": {
+    "batch_size": 64,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "trainmc"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "None", "D": "0_0_0_1/1"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 2,
+    "train_len": 1
+    },
+
+"MC_Stage2_2P_2": {
+    "batch_size": 64,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "trainmc"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "None", "D": "0_0_1_0.5/2"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 2,
+    "train_len": 1
+    },
+
+"MC_Stage3_2P_2": {
+    "batch_size": 64,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "trainmc"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "None", "D": "0_1_0.5_0.25/3"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 2,
+    "train_len": 1
+    },
+
+"MC_Stage4_2P_2": {
+    "batch_size": 64,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "trainmc"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "None", "D": "1_0.5_0.25_0.125/4"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 2,
+    "train_len": 1
+    },
+
+"MC_Stage4_3P_2": {
+    "batch_size": 64,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "trainmc"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "None", "D": "1_0.5_0.25_0.125/4"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 3,
+    "train_len": 1
+    },
+
+"MC_Stage4_4P_2": {
+    "batch_size": 64,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "trainmc"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "None", "D": "1_0.5_0.25_0.125/4"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 4,
+    "train_len": 1
+    },
+
+"trainRes_1Pframe_2": {
+    "batch_size": 58,
+    "lr": 1e-4, 
+    "strategy": {"stage": "1Pframe", "random": 1},  
+    "frozen_modules": ["if_model", "MENet", "CondMotion", "Residual"], 
+    "re-activate_modules": [["Residual", "gaussian_conditional"], ["Residual", "contextual_encoder"], ["Residual", "contextual_hyper_prior_encoder"], ["Residual", "contextual_hyper_prior_decoder"], ["Residual", "temporal_prior_encoder"], ["Residual", "y_prior_fusion_adaptor_0"], ["Residual", "y_prior_fusion"], ["Residual", "contextual_decoder"], ["Residual", "recon_generation_net"], ["Residual", "bit_estimator_z"]],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.5},
+    "train_len": 1
+    },
+
+"trainMC_2Pframes_2": {
+    "batch_size": 26,
+    "lr": 1e-4, 
+    "strategy": {"stage": "2Pframes", "random": 1},
+    "mode": "residual",
+    "frozen_modules": ["if_model", "MENet", "CondMotion", "Residual"],
+    "re-activate_modules": [["Residual", "feature_adaptor_I"], ["Residual", "feature_extractor"], ["Residual", "context_fusion_net"], ["Residual", "mc_generator"]],
+    "loss_on": {"R": "rate", "D": "0.5*mc_distortion/0.5*distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "train_len": 1
+    },
+
+"trainRes_Inter_2Pframes_2": {
+    "batch_size": 30,
+    "lr": 1e-4, 
+    "strategy": {"stage": "2Pframes", "random": 1}, 
+    "mode": "residual", 
+    "frozen_modules": ["if_model", "MENet", "CondMotion", "Residual"], 
+    "re-activate_modules": [["Residual", "gaussian_conditional"], ["Residual", "contextual_encoder"], ["Residual", "contextual_hyper_prior_encoder"], ["Residual", "contextual_hyper_prior_decoder"], ["Residual", "temporal_prior_encoder"], ["Residual", "y_prior_fusion_adaptor_0"], ["Residual", "y_prior_fusion"], ["Residual", "contextual_decoder"], ["Residual", "recon_generation_net"], ["Residual", "bit_estimator_z"]],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.5},
+    "train_len": 1
+    },
+
+"trainRes_2Pframes_2": {
+    "batch_size": 26,
+    "lr": 1e-4, 
+    "strategy": {"stage": "2Pframes", "random": 1}, 
+    "mode": "residual",
+    "frozen_modules": ["if_model", "MENet", "CondMotion"], 
+    "re-activate_modules": [],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.5},
+    "train_len": 1
+    },
+
+"trainRes_fullgop_2": {
+    "batch_size": 12,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "fullgop"}, 
+    "frozen_modules": ["if_model", "MENet", "CondMotion"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 4,
+    "train_len": 1
+    },
+
+"trainAll_2Pframes_2": {
+    "batch_size": 24,
+    "lr": 1e-4,  
+    "strategy": {"stage": "2Pframes", "random": 1}, 
+    "mode": "residual", 
+    "frozen_modules": ["if_model", "MENet"],             
+    "re-activate_modules": [],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "train_len": 1
+    },
+
+"trainAll_fullgop_2": {
+    "batch_size": 10,
+    "lr": 1e-4, 
+    "RNN": 0, 
+    "strategy": {"stage": "fullgop"}, 
+    "frozen_modules": ["if_model", "MENet"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 4,
+    "train_len": 1
+    },
+
+"trainRNN_2": {
+    "batch_size": 10,
+    "lr": 1e-5, 
+    "RNN": 1, 
+    "strategy": {"stage": "fullgop"}, 
+    "frozen_modules": ["if_model", "MENet"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 4,
+    "train_len": 1
+    },
+
+"trainRNN_ME_2": {
+    "batch_size": 10,
+    "lr": 1e-5, 
+    "RNN": 1, 
+    "strategy": {"stage": "fullgop"}, 
+    "frozen_modules": ["if_model"],
+    "re-activate_modules": [],
+    "loss_on": {"R": "rate", "D": "distortion"},
+    "lr_scheduler": {"milestones": [], "gamma": 0.1},
+    "max_num_Pframe": 4,
+    "train_len": 1
+    }
+}

@@ -10,16 +10,15 @@
         channel_N           : 64
         quant_mode          : estUN_outR
 
-        variable_rate       : True
+        variable_rate       : False
 
-        cond_source         : flow_hat+ref_mv_feature
+        cond_source         : flow_hat
         cond_input_dim      : [2]
         enc_cond_dims       : [64, 64]
         dec_cond_dims       : [64, 64]
         cond_kernel_size    : [5, 3]
         cond_scale_list     : [4, 2]
-        temp_source         : ref_intensity+ref_mv_y
+        temp_source         : ref_intensity
         predprior_input_dim : 5
         
-        implicit_channel    : 2
-        add_fg              : True
+        add_fg              : False

@@ -10,7 +10,7 @@
         channel_N           : 64
         quant_mode          : estUN_outR
 
-        variable_rate       : True
+        variable_rate       : False
 
         cond_source         : flow_hat+ref_mv_feature
         cond_input_dim      : [2]

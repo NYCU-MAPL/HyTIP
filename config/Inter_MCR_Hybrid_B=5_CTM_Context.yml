@@ -18,7 +18,7 @@
         buffering_type  : hybrid
         feature_channel : 2
         no_context      : False
-        variable_rate   : True
+        variable_rate   : False
 
         CTM_Params:
             Add_CTM     : True
